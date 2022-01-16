@@ -1,0 +1,11 @@
+Module	Section	Sample Name	Source
+FastQC	all_sections	Ast28B_R2_001	/home/mhussien/loretta_decontamination/astrangia_paper/runs/fastqc/Ast28B_R2_001_fastqc.zip
+FastQC	all_sections	trimmomatic_Ast28B_R1_PE	/home/mhussien/loretta_decontamination/astrangia_paper/runs/fastqc/trimmomatic_Ast28B_R1_PE_fastqc.zip
+FastQC	all_sections	fastp_Ast28B_R2_PE	/home/mhussien/loretta_decontamination/astrangia_paper/runs/fastqc/fastp_Ast28B_R2_PE_fastqc.zip
+FastQC	all_sections	fastp_Ast28B_R1_SE	/home/mhussien/loretta_decontamination/astrangia_paper/runs/fastqc/fastp_Ast28B_R1_SE_fastqc.zip
+FastQC	all_sections	trimmomatic_Ast28B_R2_SE	/home/mhussien/loretta_decontamination/astrangia_paper/runs/fastqc/trimmomatic_Ast28B_R2_SE_fastqc.zip
+FastQC	all_sections	Ast28B_R1_001	/home/mhussien/loretta_decontamination/astrangia_paper/runs/fastqc/Ast28B_R1_001_fastqc.zip
+FastQC	all_sections	trimmomatic_Ast28B_R2_PE	/home/mhussien/loretta_decontamination/astrangia_paper/runs/fastqc/trimmomatic_Ast28B_R2_PE_fastqc.zip
+FastQC	all_sections	fastp_Ast28B_R1_PE	/home/mhussien/loretta_decontamination/astrangia_paper/runs/fastqc/fastp_Ast28B_R1_PE_fastqc.zip
+FastQC	all_sections	fastp_Ast28B_R2_SE	/home/mhussien/loretta_decontamination/astrangia_paper/runs/fastqc/fastp_Ast28B_R2_SE_fastqc.zip
+FastQC	all_sections	trimmomatic_Ast28B_R1_SE	/home/mhussien/loretta_decontamination/astrangia_paper/runs/fastqc/trimmomatic_Ast28B_R1_SE_fastqc.zip
