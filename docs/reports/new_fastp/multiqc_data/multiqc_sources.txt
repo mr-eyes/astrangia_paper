@@ -1,0 +1,13 @@
+Module	Section	Sample Name	Source
+fastp	all_sections	fastp	/home/mhussien/astrangia/astrangia_paper/runs/fastp_new/fastp.json
+FastQC	all_sections	trimmomatic_Ast28B_R2_SE	/home/mhussien/astrangia/astrangia_paper/runs/fastp_new/trimmomatic_Ast28B_R2_SE_fastqc.zip
+FastQC	all_sections	Ast28B_R2_001	/home/mhussien/astrangia/astrangia_paper/runs/fastp_new/Ast28B_R2_001_fastqc.zip
+FastQC	all_sections	Ast28B.R1.pe	/home/mhussien/astrangia/astrangia_paper/runs/fastp_new/Ast28B.R1.pe_fastqc.zip
+FastQC	all_sections	Ast28B.R2.se	/home/mhussien/astrangia/astrangia_paper/runs/fastp_new/Ast28B.R2.se_fastqc.zip
+FastQC	all_sections	trimmomatic_Ast28B_R1_PE	/home/mhussien/astrangia/astrangia_paper/runs/fastp_new/trimmomatic_Ast28B_R1_PE_fastqc.zip
+FastQC	all_sections	trimmomatic_Ast28B_R1_SE	/home/mhussien/astrangia/astrangia_paper/runs/fastp_new/trimmomatic_Ast28B_R1_SE_fastqc.zip
+FastQC	all_sections	Ast28B_R1_001	/home/mhussien/astrangia/astrangia_paper/runs/fastp_new/Ast28B_R1_001_fastqc.zip
+FastQC	all_sections	Ast28B.R2.pe	/home/mhussien/astrangia/astrangia_paper/runs/fastp_new/Ast28B.R2.pe_fastqc.zip
+FastQC	all_sections	Ast28B.R1.se	/home/mhussien/astrangia/astrangia_paper/runs/fastp_new/Ast28B.R1.se_fastqc.zip
+FastQC	all_sections	Ast28B	/home/mhussien/astrangia/astrangia_paper/runs/fastp_new/Ast28B.failed_fastqc.zip
+FastQC	all_sections	trimmomatic_Ast28B_R2_PE	/home/mhussien/astrangia/astrangia_paper/runs/fastp_new/trimmomatic_Ast28B_R2_PE_fastqc.zip
