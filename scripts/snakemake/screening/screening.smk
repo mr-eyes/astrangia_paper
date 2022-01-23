@@ -6,13 +6,46 @@ import glob
 SAMPLES_DIR="/home/mhussien/astrangia/astrangia_paper/data/samples"
 TRIMMED_SAMPLES="/home/mhussien/astrangia/astrangia_paper/data/trimmed"
 SIGS_OUTDIR="/home/mhussien/astrangia/astrangia_paper/data/sigs"
+cDBG_OUTDIR="/home/mhussien/astrangia/astrangia_paper/data/cDBGk75_samples"
+
 
 SAMPLES, = glob_wildcards(SAMPLES_DIR + "/{sample}_1.fastq.gz")
 
 rule all:
     input:
         expand("{OUTDIR}" + "/trimmed_{sample}.sig", OUTDIR = SIGS_OUTDIR, sample=SAMPLES),
+        expand("{OUTDIR}" + "/trimmed_{sample}.fastq", OUTDIR = TRIMMED_SAMPLES, sample=SAMPLES),
+        expand("{OUTDIR}" + "/cDBG_k75_all_samples.{EXT}", OUTDIR = cDBG_OUTDIR, EXT = ["histo", "unitigs.fa"]),
         SIGS_OUTDIR + "/all_samples_k31.sig",
+
+rule bcalm:
+    input: expand("{OUTDIR}" + "/trimmed_{sample}.fastq", OUTDIR = TRIMMED_SAMPLES, sample=SAMPLES),
+    threads: 32
+    resources:
+        time = 1000,
+        mem_mb = 50000,
+        nodes=1,
+        partition="high2",
+    params:
+        bcalm_app = "/home/mhussien/astrangia/astrangia_paper/src/bcalm/build/bcalm",
+        bcalm_tmp_dir = "/scratch/mhussien/bcalm_k75/",
+        k = 75,
+        max_ram = 40000,
+        cores = 32,
+        min_abund = 3,
+        out_dir = cDBG_OUTDIR,
+        out_prefix = "cDBG_k75_all_samples"
+    output:
+        tmp_dir = temp(directory("/scratch/mhussien/bcalm_k75/")),
+        histo = cDBG_OUTDIR + "/cDBG_k75_all_samples.histo",
+        unitigs = cDBG_OUTDIR + "/cDBG_k75_all_samples.unitigs.fa",
+    shell: """
+        {params.bcalm_app} -kmer-size {params.k} -nb-cores {params.cores} \
+        -max-memory {params.max_ram} -abundance-min {params.min_abund} \
+        -out-tmp {output.tmp_dir} -out-dir {params.out_dir} \
+        -in >(ls -d -1 {input}) \
+        -out {params.out_prefix} -verbose 1  -histo 1
+    """
 
 
 rule merge_signatures:
