@@ -10,7 +10,20 @@ SIGS_OUTDIR="/home/mhussien/astrangia/astrangia_paper/data/sigs"
 SAMPLES, = glob_wildcards(SAMPLES_DIR + "/{sample}_1.fastq.gz")
 
 rule all:
+    input:
+        expand("{OUTDIR}" + "/trimmed_{sample}.sig", OUTDIR = SIGS_OUTDIR, sample=SAMPLES),
+        SIGS_OUTDIR + "/all_samples_k31.sig",
+
+
+rule merge_signatures:
     input: expand("{OUTDIR}" + "/trimmed_{sample}.sig", OUTDIR = SIGS_OUTDIR, sample=SAMPLES),
+    resources:
+        time = 120
+    output:
+        merged_sig = SIGS_OUTDIR + "/all_samples_k31.sig"
+    shell: """
+        sourmash signature merge {input} -o {output.merged_sig}
+    """
 
 rule compute_signatures:
     threads: 32
@@ -27,7 +40,7 @@ rule compute_signatures:
            --name {wildcards.sample}
     """
 
-rule merge_fast_output:
+rule merge_fastp_output:
     threads: 32
 
     input:
@@ -48,7 +61,9 @@ rule merge_fast_output:
 
 rule fastp:
     threads: 32
-
+    resources: 
+        mem_mb=30000, 
+        time_min=60, 
     input:
         r1_pe = SAMPLES_DIR + "/{sample}_1.fastq.gz",
         r2_pe = SAMPLES_DIR + "/{sample}_2.fastq.gz",
