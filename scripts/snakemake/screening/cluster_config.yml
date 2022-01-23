@@ -1,0 +1,11 @@
+__default__:
+    account: ctbrowngrp
+    partition: med2
+    time: 2:00:00
+    jname: fastp
+    nodes: 1
+    mem: 10gb
+    ntasks-per-node: 32
+    chdir: /home/mhussien/astrangia/astrangia_paper/data/trimmed/fastp
+    output: slurm-%j.out
+    error: slurm-%j.err
