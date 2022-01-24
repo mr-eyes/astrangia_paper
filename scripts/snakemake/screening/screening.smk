@@ -7,7 +7,7 @@ SAMPLES_DIR="/home/mhussien/astrangia/astrangia_paper/data/samples"
 TRIMMED_SAMPLES="/home/mhussien/astrangia/astrangia_paper/data/trimmed"
 SIGS_OUTDIR="/home/mhussien/astrangia/astrangia_paper/data/sigs"
 cDBG_OUTDIR="/home/mhussien/astrangia/astrangia_paper/data/cDBGk75_samples"
-
+cDBG_ASSEMBLY_DIR="/home/mhussien/astrangia/astrangia_paper/data/assembled_cDBGk75_samples"
 
 SAMPLES, = glob_wildcards(SAMPLES_DIR + "/{sample}_1.fastq.gz")
 
@@ -17,7 +17,36 @@ rule all:
         expand("{OUTDIR}" + "/trimmed_{sample}.fastq", OUTDIR = TRIMMED_SAMPLES, sample=SAMPLES),
         expand("{OUTDIR}" + "/cDBG_k75_all_samples.{EXT}", OUTDIR = cDBG_OUTDIR, EXT = ["histo", "unitigs.fa"]),
         SIGS_OUTDIR + "/all_samples_k31.sig",
+        cDBG_ASSEMBLY_DIR + "/transcripts.fasta",
 
+rule cDBG_assembly:
+    threads: 32
+
+    input:
+        cDBG_OUTDIR + "/cDBG_k75_all_samples.unitigs.fa",
+    
+    output:
+        transcripts = cDBG_ASSEMBLY_DIR + "/transcripts.fasta",
+        rnaspades_tmp_dir = temp(directory("/scratch/mhussien/rnaSpades_cDBG_assembly/"))
+    
+    params:
+        spades_output_dir = cDBG_ASSEMBLY_DIR,
+        cores = 32
+    
+    resources:
+        mem_mb = 300000,
+        nodes = 1,
+        time = 2000,
+        partition = "bmm"
+    
+    shell: """
+        /usr/bin/time -v \
+        rnaspades.py -s {input} -t {params.cores} \
+        --tmp-dir {output.rnaspades_tmp_dir} \
+        -o {params.spades_output_dir}
+    """
+
+# might need some enhacements for handling tmp files on scratch
 rule bcalm:
     input: expand("{OUTDIR}" + "/trimmed_{sample}.fastq", OUTDIR = TRIMMED_SAMPLES, sample=SAMPLES),
     threads: 16
@@ -47,7 +76,8 @@ rule bcalm:
         -max-memory {params.max_ram} -abundance-min {params.min_abund} \
         -out-tmp {output.tmp_dir} -out-dir {params.out_dir} \
         -in {output.bcalm_list} \
-        -out {params.out_prefix} -verbose 1  -histo 1
+        -out {params.out_prefix} -verbose 1  -histo 1 && \
+        mv {params.out_prefix}.unitigs {params.out_prefix}.histo {params.out_dir} 
     """
 
 
