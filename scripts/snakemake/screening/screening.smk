@@ -20,17 +20,17 @@ rule all:
 
 rule bcalm:
     input: expand("{OUTDIR}" + "/trimmed_{sample}.fastq", OUTDIR = TRIMMED_SAMPLES, sample=SAMPLES),
-    threads: 32
+    threads: 16
     resources:
         time = 1000,
-        mem_mb = 50000,
-        nodes=1,
-        partition="high2",
+        mem_mb = 200000,
+        nodes=2,
+        partition="bmh",
     params:
         bcalm_app = "/home/mhussien/astrangia/astrangia_paper/src/bcalm/build/bcalm",
         bcalm_tmp_dir = "/scratch/mhussien/bcalm_k75/",
         k = 75,
-        max_ram = 40000,
+        max_ram = 180000,
         cores = 32,
         min_abund = 3,
         out_dir = cDBG_OUTDIR,
@@ -39,11 +39,14 @@ rule bcalm:
         tmp_dir = temp(directory("/scratch/mhussien/bcalm_k75/")),
         histo = cDBG_OUTDIR + "/cDBG_k75_all_samples.histo",
         unitigs = cDBG_OUTDIR + "/cDBG_k75_all_samples.unitigs.fa",
+        bcalm_list = temp("bcalm.list")
     shell: """
+        ls -d -1 {input} > {output.bcalm_list} && \
+        mkdir -p {output.tmp_dir} && \
         {params.bcalm_app} -kmer-size {params.k} -nb-cores {params.cores} \
         -max-memory {params.max_ram} -abundance-min {params.min_abund} \
         -out-tmp {output.tmp_dir} -out-dir {params.out_dir} \
-        -in >(ls -d -1 {input}) \
+        -in {output.bcalm_list} \
         -out {params.out_prefix} -verbose 1  -histo 1
     """
 
