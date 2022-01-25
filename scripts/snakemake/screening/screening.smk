@@ -1,23 +1,181 @@
 import os
 import snakemake.io
 import glob
+import sys
+
+def prepare_rnaSpades(param, reads):
+    # print(f"original: {reads}", file=sys.stderr)
+    # print(f"str: {str(reads)}", file=sys.stderr)
+    reads = list(reads)
+    # print(f"list: {reads}", file=sys.stderr)
+    all_params = list()
+    for read in reads:
+        all_params.append(f"{param} {read}")
+    print(' '.join(all_params), file=sys.stderr)
+    return ' '.join(all_params)
 
 
-SAMPLES_DIR="/home/mhussien/astrangia/astrangia_paper/data/samples"
-TRIMMED_SAMPLES="/home/mhussien/astrangia/astrangia_paper/data/trimmed"
-SIGS_OUTDIR="/home/mhussien/astrangia/astrangia_paper/data/sigs"
-cDBG_OUTDIR="/home/mhussien/astrangia/astrangia_paper/data/cDBGk75_samples"
-cDBG_ASSEMBLY_DIR="/home/mhussien/astrangia/astrangia_paper/data/assembled_cDBGk75_samples"
+ROOT_DIR = "/home/mhussien/astrangia/astrangia_paper/data/"
+SAMPLES_DIR = ROOT_DIR + "samples"
+TRIMMED_SAMPLES = ROOT_DIR + "trimmed"
+SIGS_OUTDIR = ROOT_DIR + "sigs"
+cDBG_OUTDIR = ROOT_DIR + "cDBGk75_samples"
+cDBG_ASSEMBLY_DIR = ROOT_DIR + "assembled_cDBGk75_samples"
+TRIMMED_ASSEMBLY_DIR = ROOT_DIR + "assembled_trimmed_samples"
+ITS_DB_DIR = ROOT_DIR + "its_db"
+BLASTN_RESULTS_DIR = ROOT_DIR + "blastn_results"
+
 
 SAMPLES, = glob_wildcards(SAMPLES_DIR + "/{sample}_1.fastq.gz")
 
 rule all:
     input:
+        # Generate signatures for trimmed samples {R1_PE, R2_PE, Merged}
         expand("{OUTDIR}" + "/trimmed_{sample}.sig", OUTDIR = SIGS_OUTDIR, sample=SAMPLES),
+        # fastp trimming, this can be turned off in favor of previous or next rules
         expand("{OUTDIR}" + "/trimmed_{sample}.fastq", OUTDIR = TRIMMED_SAMPLES, sample=SAMPLES),
+        # Generate cDBG for all trimmed samples {R1_PE, R2_PE, Merged}
         expand("{OUTDIR}" + "/cDBG_k75_all_samples.{EXT}", OUTDIR = cDBG_OUTDIR, EXT = ["histo", "unitigs.fa"]),
+        # Merge all signatures
         SIGS_OUTDIR + "/all_samples_k31.sig",
+        # Assemble the cDBG of all trimmed samples
         cDBG_ASSEMBLY_DIR + "/transcripts.fasta",
+        TRIMMED_ASSEMBLY_DIR + "/transcripts.fasta",
+
+        # Download and create blastdb of the ITS database
+        # expand(ITS_DB_DIR + "/its_8.3.{EXT}", EXT = ['nhr', 'nin', 'nsq']),
+        ITS_DB_DIR + "/its_8.3.fa.ndb",
+        # cDBG blastn query on ITS
+        BLASTN_RESULTS_DIR + "/its_cDBG_all_samples.blastn",
+        BLASTN_RESULTS_DIR + "/its_assembled_trimmed_samples.blastn"
+
+rule blast_query_its_assembled_trimmed_samples:
+    input:
+        query_fasta = TRIMMED_ASSEMBLY_DIR + "/transcripts.fasta",
+        # one file is enough to detect that blast has created the db
+        blast_db = ITS_DB_DIR + "/its_8.3.fa.ndb"
+    output:
+        blast_results = BLASTN_RESULTS_DIR + "/its_assembled_trimmed_samples.blastn"
+    params:
+        blastn_out_dir = BLASTN_RESULTS_DIR,
+        its_db_prefix = ITS_DB_DIR + "/its_8.3.fa"
+    threads: 10
+    resources:
+        time = 500,
+        partition = "bmm",
+        mem_mb = 100000
+    shell: """
+        mkdir -p {params.blastn_out_dir} && \
+        blastn -query {input.query_fasta} \
+        -db {params.its_db_prefix} \
+        -outfmt "6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qlen slen sstrand qcovs qcovhsp" \
+        -dust 'yes' -best_hit_overhang 0.25 -best_hit_score_edge 0.25 \
+        -max_target_seqs 10  -out {output.blast_results}
+    """
+
+rule assembly_trimmed_reads:
+    input:
+        # Just to make it wait
+        R1_PE=TRIMMED_SAMPLES + "/merged_trimmed_R1_PE.fastq",
+        R2_PE=TRIMMED_SAMPLES + "/merged_trimmed_R2_PE.fastq",
+        MERGED=TRIMMED_SAMPLES + "/merged_trimmed_merged.fastq",
+    threads: 32
+    output:
+        transcripts = TRIMMED_ASSEMBLY_DIR + "/transcripts.fasta"
+    params:
+        cores = 32,
+        spades_output_dir = TRIMMED_ASSEMBLY_DIR,
+        rnaspades_tmp_dir = "/scratch/mhussien/rnaSpades_trimmed_reads_assembly/",
+    resources:
+        mem_mb = 200000,
+        nodes = 1,
+        time = 3000,
+        partition = "med2"
+    shell: """
+        /usr/bin/time -v \
+        rnaspades.py -1 {input.R1_PE} -2 {input.R2_PE} --merged {input.MERGED} -t {params.cores} \
+        --tmp-dir {params.rnaspades_tmp_dir} \
+        -o {params.spades_output_dir}
+    """
+
+rule prepare_assembly_trimmed_reads:
+    input:
+        # Just to make it wait until they all done
+        merged_reads = expand("{OUTDIR}" + "/trimmed_{sample}.fastq", OUTDIR = TRIMMED_SAMPLES, sample=SAMPLES),
+        R1_PE = expand(TRIMMED_SAMPLES  + "/trimmed_{sample}_R1_PE.fastq.gz", sample=SAMPLES),
+        R2_PE = expand(TRIMMED_SAMPLES  + "/trimmed_{sample}_R2_PE.fastq.gz", sample=SAMPLES),
+        MERGED = expand(TRIMMED_SAMPLES + "/trimmed_{sample}_merged.fastq.gz", sample=SAMPLES),
+    output:
+        R1_PE=TRIMMED_SAMPLES + "/merged_trimmed_R1_PE.fastq",
+        R2_PE=TRIMMED_SAMPLES + "/merged_trimmed_R2_PE.fastq",
+        MERGED=TRIMMED_SAMPLES + "/merged_trimmed_merged.fastq",
+    shell: """
+        zcat {input.R1_PE} > {output.R1_PE} && \
+        zcat {input.R2_PE} > {output.R2_PE} && \
+        zcat {input.MERGED} > {output.MERGED}
+    """
+
+
+rule blast_query_its_cDBG_allSamples:
+    input:
+        query_fasta = cDBG_ASSEMBLY_DIR + "/transcripts.fasta",
+        # one file is enough to detect that blast has created the db
+        blast_db = ITS_DB_DIR + "/its_8.3.fa.ndb"
+    output:
+        blast_results = BLASTN_RESULTS_DIR + "/its_cDBG_all_samples.blastn"
+    params:
+        blastn_out_dir = BLASTN_RESULTS_DIR,
+        its_db_prefix = ITS_DB_DIR + "/its_8.3.fa"
+    threads: 10
+    resources:
+        time = 500,
+        partition = "bmm",
+        mem_mb = 100000
+    shell: """
+        mkdir -p {params.blastn_out_dir} && \
+        blastn -query {input.query_fasta} \
+        -db {params.its_db_prefix} \
+        -outfmt "6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qlen slen sstrand qcovs qcovhsp" \
+        -dust 'yes' -best_hit_overhang 0.25 -best_hit_score_edge 0.25 \
+        -max_target_seqs 10  -out {output.blast_results}
+    """
+
+
+rule create_blast_db_its:
+    input: 
+        its_fasta = ITS_DB_DIR + "/its_8.3.fa"
+    threads: 12
+    resources:
+        time = 200,
+        mem_mb = 10000,
+        partition = "med2"
+    params:
+        db_name = ITS_DB_DIR + "/its_8.3.fa"
+    output:
+        expand(ITS_DB_DIR + "/its_8.3.fa.{EXT}", EXT = ['nhr', 'nin', 'nsq', 'ndb'])
+    shell: """
+         makeblastdb -in {input.its_fasta} -input_type fasta -dbtype nucl  -out {params.db_name}
+    """
+    
+
+rule download_its:
+    threads: 1
+    resources:
+        mem_mb = 500,
+        partition = "med2"
+    output:
+        fasta_file = ITS_DB_DIR + "/its_8.3.fa",
+        output_dir = protected(directory(ITS_DB_DIR))
+    params:
+        # https://doi.org/10.15156/BIO/1281567
+        URL = "https://files.plutof.ut.ee/public/orig/28/88/28881015F8784D2A68C3F8C6CB851EAAE3803A8BFDA735C6390CE05DB4E34851.gz"
+
+    shell: """
+        mkdir -p {params.output_dir} && \
+        curl {params.URL} --output its_8.3.fa.gz && \
+        gunzip its_8.3.fa.gz && \
+        mv its_8.3.fa {output.fasta_file}
+    """
 
 rule cDBG_assembly:
     threads: 32
@@ -27,22 +185,22 @@ rule cDBG_assembly:
     
     output:
         transcripts = cDBG_ASSEMBLY_DIR + "/transcripts.fasta",
-        rnaspades_tmp_dir = temp(directory("/scratch/mhussien/rnaSpades_cDBG_assembly/"))
     
     params:
         spades_output_dir = cDBG_ASSEMBLY_DIR,
-        cores = 32
+        cores = 64,
+        rnaspades_tmp_dir = "/scratch/mhussien/rnaSpades_cDBG_assembly/"
     
     resources:
-        mem_mb = 300000,
-        nodes = 1,
+        mem_mb = 150000,
+        nodes = 2,
         time = 2000,
-        partition = "bmm"
+        partition = "med2"
     
     shell: """
         /usr/bin/time -v \
         rnaspades.py -s {input} -t {params.cores} \
-        --tmp-dir {output.rnaspades_tmp_dir} \
+        --tmp-dir {params.rnaspades_tmp_dir} \
         -o {params.spades_output_dir}
     """
 
