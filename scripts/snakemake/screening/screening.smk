@@ -23,7 +23,11 @@ cDBG_OUTDIR = ROOT_DIR + "cDBGk75_samples"
 cDBG_ASSEMBLY_DIR = ROOT_DIR + "assembled_cDBGk75_samples"
 TRIMMED_ASSEMBLY_DIR = ROOT_DIR + "assembled_trimmed_samples"
 ITS_DB_DIR = ROOT_DIR + "its_db"
+SPLITTED_FASTA_DIR = ROOT_DIR + "splitted_fasta"
 BLASTN_RESULTS_DIR = ROOT_DIR + "blastn_results"
+SEQCLEAN_TRIMMED_ASSEMBLY_DIR = ROOT_DIR + "seqclean_assembled_trimmed_samples"
+BUSCO_DATASET_DIR = ROOT_DIR + "BUSCO_DATASET"
+BUSCO_REPORTS = ROOT_DIR + "BUSCO_REPORTS"
 
 
 SAMPLES, = glob_wildcards(SAMPLES_DIR + "/{sample}_1.fastq.gz")
@@ -41,29 +45,77 @@ rule all:
         # Assemble the cDBG of all trimmed samples
         cDBG_ASSEMBLY_DIR + "/transcripts.fasta",
         TRIMMED_ASSEMBLY_DIR + "/transcripts.fasta",
-
         # Download and create blastdb of the ITS database
         # expand(ITS_DB_DIR + "/its_8.3.{EXT}", EXT = ['nhr', 'nin', 'nsq']),
         ITS_DB_DIR + "/its_8.3.fa.ndb",
         # cDBG blastn query on ITS
         BLASTN_RESULTS_DIR + "/its_cDBG_all_samples.blastn",
-        BLASTN_RESULTS_DIR + "/its_assembled_trimmed_samples.blastn"
+        # BLASTN_RESULTS_DIR + "/its_assembled_trimmed_samples.blastn",
+        # seqclean of assembled trimmed samples output
+        TRIMMED_ASSEMBLY_DIR + "/cleaned_transcripts.fasta",
+
+        BUSCO_REPORTS + "/CLEANED_TRANSCRIPT_TRIMMED/short_summary.specific.eukaryota_odb10.CLEANED_TRANSCRIPT_TRIMMED.txt",
+
+        # BLASTn assembled trimmed samples
+        # expand(BLASTN_RESULTS_DIR + "/cleaned_assembled_trimmed" + "/its_cleaned_assembled_trimmed_samples{SPLIT_PART}.blastn", SPLIT_PART = ["%03d" % (num,) for num in range(1,33,1)])
+        BLASTN_RESULTS_DIR + "/cleaned_assembled_trimmed" + "/merged_its_cleaned_assembled_trimmed_samples.blastn"
+
+
+
+
+# rule blast_query_its_assembled_trimmed_samples:
+#     input:
+#         query_fasta = TRIMMED_ASSEMBLY_DIR + "/cleaned_transcripts.fasta",
+#         # one file is enough to detect that blast has created the db
+#         blast_db = ITS_DB_DIR + "/its_8.3.fa.ndb"
+#     output:
+#         blast_results = BLASTN_RESULTS_DIR + "/its_cleaned_assembled_trimmed_samples.blastn"
+#     params:
+#         blastn_out_dir = BLASTN_RESULTS_DIR,
+#         its_db_prefix = ITS_DB_DIR + "/its_8.3.fa"
+#     threads: 32
+#     resources:
+#         time = 3000,
+#         partition = "bmm",
+#         mem_mb = 100000,
+#     shell: """
+#         mkdir -p {params.blastn_out_dir} && \
+#         blastn -query {input.query_fasta} \
+#         -db {params.its_db_prefix} \
+#         -outfmt "6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qlen slen sstrand qcovs qcovhsp" \
+#         -dust 'yes' -best_hit_overhang 0.25 -best_hit_score_edge 0.25 \
+#         -max_target_seqs 10  -out {output.blast_results}
+#     """
+
+rule merge_blast_query_its_assembled_trimmed_samples:
+    input:
+        expand(BLASTN_RESULTS_DIR + "/cleaned_assembled_trimmed" + "/its_cleaned_assembled_trimmed_samples{SPLIT_PART}.blastn", SPLIT_PART = ["%03d" % (num,) for num in range(1,33,1)])
+    output:
+        BLASTN_RESULTS_DIR + "/cleaned_assembled_trimmed" + "/merged_its_cleaned_assembled_trimmed_samples.blastn"
+    resources:
+        mem_mb = 100,
+        time = 60,
+        partition = "low2"
+    threads: 10
+    shell: """
+        cat {input} > {output}
+    """
 
 rule blast_query_its_assembled_trimmed_samples:
     input:
-        query_fasta = TRIMMED_ASSEMBLY_DIR + "/transcripts.fasta",
+        query_fasta = SPLITTED_FASTA_DIR + "/cleaned_transcripts/cleaned_transcripts.part_{SPLIT_PART}.fasta",
         # one file is enough to detect that blast has created the db
         blast_db = ITS_DB_DIR + "/its_8.3.fa.ndb"
     output:
-        blast_results = BLASTN_RESULTS_DIR + "/its_assembled_trimmed_samples.blastn"
+        blast_results = BLASTN_RESULTS_DIR + "/cleaned_assembled_trimmed" + "/its_cleaned_assembled_trimmed_samples{SPLIT_PART}.blastn"
     params:
-        blastn_out_dir = BLASTN_RESULTS_DIR,
+        blastn_out_dir = BLASTN_RESULTS_DIR + "/cleaned_assembled_trimmed",
         its_db_prefix = ITS_DB_DIR + "/its_8.3.fa"
-    threads: 10
+    threads: 8
     resources:
-        time = 500,
-        partition = "bmm",
-        mem_mb = 100000
+        time = 3 * 24 * 60,
+        partition = "med2",
+        mem_mb = 25 * 1024,
     shell: """
         mkdir -p {params.blastn_out_dir} && \
         blastn -query {input.query_fasta} \
@@ -72,6 +124,76 @@ rule blast_query_its_assembled_trimmed_samples:
         -dust 'yes' -best_hit_overhang 0.25 -best_hit_score_edge 0.25 \
         -max_target_seqs 10  -out {output.blast_results}
     """
+
+rule split_assembled_for_blast:
+    threads: 8
+    input:
+        TRIMMED_ASSEMBLY_DIR + "/cleaned_transcripts.fasta",
+    output:
+        expand(SPLITTED_FASTA_DIR + "/cleaned_transcripts/cleaned_transcripts.part_{SPLIT_PART}.fasta", SPLIT_PART = ["%03d" % (num,) for num in range(1,33,1)])
+    resources:
+        mem_mb = 50 * 1024,
+        time = 60,
+        partition = "low2"
+    params:
+        parts = 32,
+        splitted_dir = SPLITTED_FASTA_DIR + "/cleaned_transcripts",
+        splitted_fastas_dir = SPLITTED_FASTA_DIR
+    shell: """
+        mkdir -p {params.splitted_fastas_dir} && \
+        seqkit split -p {params.parts} {input} -O {params.splitted_dir}
+    """
+
+
+# This needs an offline busco dataset (I preferred it that way)
+# https://busco-data.ezlab.org/v5/data/
+rule busco_assembly_trimmed_reads:
+    threads: 32
+    input:
+        transcripts = TRIMMED_ASSEMBLY_DIR + "/cleaned_transcripts.fasta"
+    output:
+        BUSCO_REPORTS + "/CLEANED_TRANSCRIPT_TRIMMED/short_summary.specific.eukaryota_odb10.CLEANED_TRANSCRIPT_TRIMMED.txt"
+    params:
+        busco_output = BUSCO_REPORTS + "/CLEANED_TRANSCRIPT_TRIMMED",
+        cores = 64,
+        busco_dataset = BUSCO_DATASET_DIR
+    resources:
+        partition = "med2",
+        nodes = 2,
+        mem_mb = 100*1024,
+        time = 5 * 24 * 60
+    shell: """
+         busco -m transcriptome -i {input} -c {params.cores} -r \
+        --offline \
+        --download_path {params.busco_dataset} \
+        -o {params.busco_output} --auto-lineage-euk
+    """
+    
+
+
+rule seqclean_assembly_trimmed_reads:
+    input: 
+        TRIMMED_ASSEMBLY_DIR + "/transcripts.fasta",
+    threads: 16
+    output:
+        cleaned_output = protected(TRIMMED_ASSEMBLY_DIR + "/cleaned_transcripts.fasta"),
+    params:
+        seqclean_app = "/home/mhussien/astrangia/astrangia_paper/src/seqcleaner/seqclean",
+        tmp_dir = temp(directory("/scratch/mhussien/seqclean_assembly_trimmed_reads")),
+        cores = 16,
+    resources:
+        partition = "med2",
+        time = 60*10,
+        mem_mb = 50 * 1024,
+        tmpdir = "/scratch/mhussien/tmp_seqclean_assembly_trimmed_reads",
+    shell: """
+        mkdir -p {params.tmp_dir} && cd {params.tmp_dir} && \
+        {params.seqclean_app} {input} \
+        -c {params.cores} -o {output.cleaned_output} && \
+        rm -rf {params.tmp_dir}
+    """
+
+
 
 rule assembly_trimmed_reads:
     input:
