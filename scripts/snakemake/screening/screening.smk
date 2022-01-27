@@ -58,8 +58,8 @@ rule all:
 
         # BLASTn assembled trimmed samples
         # expand(BLASTN_RESULTS_DIR + "/cleaned_assembled_trimmed" + "/its_cleaned_assembled_trimmed_samples{SPLIT_PART}.blastn", SPLIT_PART = ["%03d" % (num,) for num in range(1,33,1)])
-        BLASTN_RESULTS_DIR + "/cleaned_assembled_trimmed" + "/merged_its_cleaned_assembled_trimmed_samples.blastn"
-
+        BLASTN_RESULTS_DIR + "/cleaned_assembled_trimmed" + "/merged_its_cleaned_assembled_trimmed_samples.blastn",
+        TRIMMED_ASSEMBLY_DIR + "/busco_config.ini"
 
 
 
@@ -111,10 +111,10 @@ rule blast_query_its_assembled_trimmed_samples:
     params:
         blastn_out_dir = BLASTN_RESULTS_DIR + "/cleaned_assembled_trimmed",
         its_db_prefix = ITS_DB_DIR + "/its_8.3.fa"
-    threads: 8
+    threads: 2
     resources:
         time = 3 * 24 * 60,
-        partition = "med2",
+        partition = "bmm",
         mem_mb = 25 * 1024,
     shell: """
         mkdir -p {params.blastn_out_dir} && \
@@ -150,25 +150,51 @@ rule split_assembled_for_blast:
 rule busco_assembly_trimmed_reads:
     threads: 32
     input:
-        transcripts = TRIMMED_ASSEMBLY_DIR + "/cleaned_transcripts.fasta"
+        busco_config = TRIMMED_ASSEMBLY_DIR + "/busco_config.ini"
     output:
         BUSCO_REPORTS + "/CLEANED_TRANSCRIPT_TRIMMED/short_summary.specific.eukaryota_odb10.CLEANED_TRANSCRIPT_TRIMMED.txt"
-    params:
-        busco_output = BUSCO_REPORTS + "/CLEANED_TRANSCRIPT_TRIMMED",
-        cores = 64,
-        busco_dataset = BUSCO_DATASET_DIR
     resources:
-        partition = "med2",
+        partition = "high2",
         nodes = 2,
         mem_mb = 100*1024,
         time = 5 * 24 * 60
     shell: """
-         busco -m transcriptome -i {input} -c {params.cores} -r \
-        --offline \
-        --download_path {params.busco_dataset} \
-        -o {params.busco_output} --auto-lineage-euk
+        /usr/bin/time -v busco --config {input.busco_config}
     """
-    
+
+rule prepare_config_busco_assembly_trimmed_reads:
+    input: 
+        TRIMMED_ASSEMBLY_DIR + "/cleaned_transcripts.fasta"
+    output:
+        TRIMMED_ASSEMBLY_DIR + "/busco_config.ini"
+    params:
+        busco_output_dir = BUSCO_REPORTS + "/CLEANED_TRANSCRIPT_TRIMMED",
+        busco_output = "CLEANED_TRANSCRIPT_TRIMMED",
+        cores = 64,
+        busco_dataset = BUSCO_DATASET_DIR
+    threads: 1
+    resources:
+        partition = "bmh",
+        time = 10,
+        mem_mb = 1 * 1024
+    run:
+        import inspect
+        config = f"""
+            [busco_run]
+            in = {input}
+            mode = transcriptome
+            out = {params.busco_output}
+            out_path = {params.busco_output_dir}
+            auto-lineage-euk = True
+            cpu = {params.cores}
+            force = False
+            restart = True
+            download_path = {params.busco_dataset}
+            offline=True
+        """
+        config = inspect.cleandoc(config)
+        with open(f"{output}", 'w') as OUT:
+            OUT.write(config)
 
 
 rule seqclean_assembly_trimmed_reads:
