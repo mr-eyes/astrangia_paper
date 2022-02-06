@@ -59,21 +59,19 @@ def fetch_tax_info(tax_or_name):
             print(f"Exception when calling TaxonomyApi->taxonomy_metadata_post: {e}")
 
 
+# Main function
 
-if __name__ == "__main__":
-    organism_tax_or_name = "Aleurina"
-    
-    info = fetch_tax_info(organism_tax_or_name)["taxonomy_nodes"][0]["taxonomy"]
+def organism_to_accessions(organism, debug = False):
+    info = fetch_tax_info(organism)["taxonomy_nodes"][0]["taxonomy"]
     organism_name = info["organism_name"]
     organism_taxon = info["tax_id"]
-    children = info["children"]
     full_lineage = info["lineage"] + [organism_taxon]
     nearest_taxon, accessions = nearest_available_taxon(full_lineage)
     nearest_organism_name = fetch_tax_info(nearest_taxon)["taxonomy_nodes"][0]["taxonomy"]["organism_name"]
-
-    
-    print(f"query:             organism({organism_name}) taxon({organism_taxon})")
-    print(f"nearest_available: organism({nearest_organism_name}) taxon({nearest_taxon})")
-    print(f"found {len(accessions)} accessions.")
-    print('-' * 20)
-    pprint.pprint(accessions)
+    if debug:
+        print(f"query:             organism({organism_name}) taxon({organism_taxon})")
+        print(f"nearest_available: organism({nearest_organism_name}) taxon({nearest_taxon})")
+        print(f"found {len(accessions)} accessions.")
+        print('-' * 20)
+        pprint.pprint(accessions)
+    return accessions
