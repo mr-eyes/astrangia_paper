@@ -74,4 +74,4 @@ def organism_to_accessions(organism, debug = False):
         print(f"found {len(accessions)} accessions.")
         print('-' * 20)
         pprint.pprint(accessions)
-    return accessions
+    return nearest_taxon, accessions

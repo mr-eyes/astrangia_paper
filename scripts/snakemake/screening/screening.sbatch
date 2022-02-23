@@ -25,7 +25,7 @@ set -o errexit
 set -x
 
 
-snakemake -s screening.smk --cluster "sbatch -A {cluster.account} -t {cluster.time} -J {cluster.jname} -c {cluster.ntasks-per-node} -p {cluster.partition} -N {cluster.nodes} --mem={cluster.mem}" --cluster-config cluster_config.yml --jobs 32
+snakemake -s screening.smk -j 999 --cluster-config cluster_config.json --cluster "sbatch -A {cluster.account} -t {cluster.time} -n {cluster.n} -N {cluster.N} -p {cluster.partition} -c {cluster.threads} -J {cluster.name} --output {cluster.output} --error {cluster.error}"
 
 # Print out values of the current jobs SLURM environment variables
 env | grep SLURM
