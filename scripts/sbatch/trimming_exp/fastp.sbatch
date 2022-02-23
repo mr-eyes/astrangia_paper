@@ -16,33 +16,22 @@
 conda activate astrangia
 
 # go to a particular directory
-cd /home/mhussien/loretta_decontamination/astrangia_paper/runs/trimming_test
+cd /home/mhussien/astrangia/astrangia_paper/runs/fastp_new
 
 # make things fail on errors
 set -o nounset
 set -o errexit
 set -x
 
-OUTPUT=/home/mhussien/loretta_decontamination/astrangia_paper/runs/trimming_test
-SAMPLES=/home/mhussien/loretta_decontamination/astrangia_paper/sample_data
+OUTPUT=/home/mhussien/astrangia/astrangia_paper/runs/fastp_new
+SAMPLES=/home/mhussien/astrangia/astrangia_paper/sample_data
 
 R1=${SAMPLES}/Ast28B_R1_001.fastq.gz
 R2=${SAMPLES}/Ast28B_R2_001.fastq.gz
 
-SAMPLE=Ast28B
+sample=Ast28B
 
-OP_R1_SE=fastp_${SAMPLE}_R1_SE.fastq
-OP_R2_SE=fastp_${SAMPLE}_R2_SE.fastq
-OP_R1_PE=fastp_${SAMPLE}_R1_PE.fastq
-OP_R2_PE=fastp_${SAMPLE}_R2_PE.fastq
-
-### run your commands here!
-/usr/bin/time -v fastp --in1 ${R1} --in2 ${R2} \
-             --detect_adapter_for_pe  --qualified_quality_phred 4 \
-             --length_required 25 --thread 32 \
-             --json ${SAMPLE}.json --html ${SAMPLE}.html \
-             --out1 ${OP_R1_PE} --out2 ${OP_R2_PE} \
-             --unpaired1 ${OP_R1_SE} --unpaired2 ${OP_R2_SE}
+fastp --in1 ${R1} --in2 ${R2} --cut_front --cut_right --cut_window_size 4 --cut_mean_quality 5 --trim_poly_x --length_required 25 --low_complexity_filter --adapter_sequence=AGATCGGAAGAGCACACGTCTGAACTCCAGTCA --adapter_sequence_r2=AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT --merge --merged_out ${sample}.merged.fq.gz --out1 ${sample}.R1.pe.fq.gz --out2 ${sample}.R2.pe.fq.gz --unpaired1 ${sample}.R1.se.fq.gz --unpaired2 ${sample}.R2.se.fq.gz --failed_out ${sample}.failed.fq.gz
 
 # Print out values of the current jobs SLURM environment variables
 env | grep SLURM

@@ -113,9 +113,9 @@ rule blast_query_its_assembled_trimmed_samples:
         its_db_prefix = ITS_DB_DIR + "/its_8.3.fa"
     threads: 2
     resources:
-        time = 3 * 24 * 60,
+        time = 5 * 24 * 60,
         partition = "bmm",
-        mem_mb = 25 * 1024,
+        mem_mb = 40 * 1024,
     shell: """
         mkdir -p {params.blastn_out_dir} && \
         blastn -query {input.query_fasta} \
@@ -168,7 +168,7 @@ rule prepare_config_busco_assembly_trimmed_reads:
     output:
         TRIMMED_ASSEMBLY_DIR + "/busco_config.ini"
     params:
-        busco_output_dir = BUSCO_REPORTS + "/CLEANED_TRANSCRIPT_TRIMMED",
+        busco_output_dir = BUSCO_REPORTS,
         busco_output = "CLEANED_TRANSCRIPT_TRIMMED",
         cores = 64,
         busco_dataset = BUSCO_DATASET_DIR
