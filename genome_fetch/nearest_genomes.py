@@ -17,7 +17,6 @@ from ncbi.datasets.openapi.model.v1_taxonomy_metadata_request_content_type impor
 from ncbi.datasets.openapi.model.v1_taxonomy_metadata_response import V1TaxonomyMetadataResponse
 from ncbi.datasets.openapi import ApiClient as DatasetsApiClient
 from ncbi.datasets import GenomeApi
-from numpy import full
 import pprint
 
 configuration = ncbi.datasets.openapi.Configuration(
@@ -61,7 +60,7 @@ def fetch_tax_info(tax_or_name):
 
 # Main function
 
-def organism_to_accessions(organism, debug = False):
+def organism_to_accessions(organism_tax_or_name, debug = False):
     info = fetch_tax_info(organism_tax_or_name)["taxonomy_nodes"][0]["taxonomy"]
     organism_name = info["organism_name"]
     organism_taxon = info["tax_id"]
@@ -75,3 +74,5 @@ def organism_to_accessions(organism, debug = False):
         print('-' * 20)
         pprint.pprint(accessions)
     return accessions
+
+organism_to_accessions("astrangia poculata", True)
