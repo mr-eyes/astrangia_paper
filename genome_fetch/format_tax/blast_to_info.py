@@ -105,7 +105,7 @@ print(f"Total number of organisms: {len(species)}")
 taxon_to_lineage = dict()
 
 with open("nearest_taxon.tsv", "w") as NEAREST_TSV, open(
-    "sourmash_lineages.tsv", "w"
+    "sourmash_lineages.csv", "w"
 ) as SMASH_LIN:
     NEAREST_TSV.write(
         "organism\ttaxon\tnearest_organism\tnearest_taxon\toriginal_found?\taccessions\n"
