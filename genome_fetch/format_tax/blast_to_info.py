@@ -133,5 +133,5 @@ with open("nearest_taxon.tsv", "w") as NEAREST_TSV, open(
         for accession in accessions:
             accession = accession.split(".")[0]
             lineage = taxon_to_lineage[nearest_taxon]
-            sourmash_lin = f"{accession}, {nearest_taxon}, {lineage}"
+            sourmash_lin = f"{accession},{nearest_taxon},{lineage}"
             SMASH_LIN.write(sourmash_lin)
