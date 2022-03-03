@@ -1,20 +1,12 @@
-from os import access
-import sys
-import json
 import subprocess
 from tqdm import tqdm
-import sys
 import ncbi.datasets.openapi
 from ncbi.datasets.openapi.api import taxonomy_api
 from ncbi.datasets.openapi.model.v1_taxonomy_metadata_request import (
     V1TaxonomyMetadataRequest,
 )
-from ncbi.datasets.openapi.model.rpc_status import RpcStatus
 from ncbi.datasets.openapi.model.v1_taxonomy_metadata_request_content_type import (
     V1TaxonomyMetadataRequestContentType,
-)
-from ncbi.datasets.openapi.model.v1_taxonomy_metadata_response import (
-    V1TaxonomyMetadataResponse,
 )
 from ncbi.datasets.openapi import ApiClient as DatasetsApiClient
 from ncbi.datasets import GenomeApi
@@ -25,7 +17,7 @@ configuration = ncbi.datasets.openapi.Configuration(
 )
 
 
-def nearest_available_taxon(lineage: list):
+def nearest_available_taxon(lineage):
     with DatasetsApiClient() as api_client:
         api = GenomeApi(api_client)
         taxon = str(lineage.pop())
@@ -36,10 +28,17 @@ def nearest_available_taxon(lineage: list):
         )
         result = response.get().to_dict()
         if "total_count" in result:
-            accessions = [
-                assembly["assembly"]["assembly_accession"]
-                for assembly in result["assemblies"]
-            ]
+            accessions = []
+            for assembly in result["assemblies"]:
+                if assembly["assembly"]["assembly_category"] == "representative genome":
+                    tax_id = assembly["assembly"]["org"]["tax_id"]
+                    sci_name = (
+                        assembly["assembly"]["org"]["sci_name"]
+                        .lower()
+                        .replace(" ", "_")
+                    )
+                    accession = assembly["assembly"]["assembly_accession"]
+                    accessions.append((accession, sci_name, tax_id))
             return (taxon, accessions)  # , result)
         else:
             return nearest_available_taxon(lineage)
@@ -106,13 +105,17 @@ taxon_to_lineage = dict()
 
 with open("nearest_taxon.tsv", "w") as NEAREST_TSV, open(
     "sourmash_lineages.csv", "w"
-) as SMASH_LIN:
+) as SMASH_LIN, open("accession_to_info.tsv", "w") as NAMES, open(
+    "prepare_genomes.sh", "w"
+) as SH:
     NEAREST_TSV.write(
         "organism\ttaxon\tnearest_organism\tnearest_taxon\toriginal_found?\taccessions\n"
     )
     SMASH_LIN.write(
         "accession,taxid,superkingdom,phylum,class,order,family,genus,species,strain\n"
     )
+    NAMES.write("accession\tparent_taxon\ttaxon\tsci_name\n")
+    SH.write("set -e\n")
     for sp in tqdm(species):
         # species to tax
         tax_info = fetch_tax_info(sp)["taxonomy_nodes"][0]["taxonomy"]
@@ -120,18 +123,32 @@ with open("nearest_taxon.tsv", "w") as NEAREST_TSV, open(
         organism_name = tax_info["organism_name"]
         organism_taxon = str(tax_info["tax_id"])
         full_lineage = tax_info["lineage"] + [organism_taxon]
-        nearest_taxon, accessions = nearest_available_taxon(full_lineage)
+        nearest_taxon, accessions_info = nearest_available_taxon(full_lineage)
+        accessions = [acc for acc, _, _ in accessions_info]
         nearest_organism_name = fetch_tax_info(nearest_taxon)["taxonomy_nodes"][0][
             "taxonomy"
         ]["organism_name"]
         NEAREST_TSV.write(
             f"{organism_name}\t{organism_taxon}\t{nearest_organism_name}\t{nearest_taxon}\t{organism_taxon == nearest_taxon}\t{','.join(accessions)}\n"
         )
+
         if nearest_taxon not in taxon_to_lineage:
             taxon_to_lineage[nearest_taxon] = tax_to_lineage(nearest_taxon)
 
-        for accession in accessions:
-            accession = accession.split(".")[0]
-            lineage = taxon_to_lineage[nearest_taxon]
-            sourmash_lin = f"{accession},{nearest_taxon},{lineage}"
-            SMASH_LIN.write(sourmash_lin)
+        for acc in accessions_info:
+            assembly_accession, sci_name, tax_id = acc
+            NAMES.write(f"{assembly_accession}\t{nearest_taxon}\t{tax_id}\t{sci_name}\n")
+            url = f"https://api.ncbi.nlm.nih.gov/datasets/v1/genome/accession/{assembly_accession}/download"
+            SH.write(f"# {assembly_accession}\t{nearest_taxon}\t{tax_id}\t{sci_name}\n")
+            SH.write(f"wget -N {url} -O {assembly_accession}.zip\n")
+            SH.write(f"unzip {assembly_accession}.zip -d {assembly_accession}\n")
+            SH.write(
+                f"cat {assembly_accession}/ncbi_dataset/data/{assembly_accession}/*fna > {assembly_accession}.fna\n"
+            )
+            SH.write(f"rm -rf {assembly_accession}/\n\n")
+
+        # for accession in accessions:
+        #     accession = accession.split(".")[0]
+        #     lineage = taxon_to_lineage[nearest_taxon]
+        #     sourmash_lin = f"{accession},{nearest_taxon},{lineage}"
+        #     SMASH_LIN.write(sourmash_lin)
