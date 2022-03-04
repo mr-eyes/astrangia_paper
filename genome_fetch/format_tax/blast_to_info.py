@@ -132,9 +132,6 @@ with open("nearest_taxon.tsv", "w") as NEAREST_TSV, open(
             f"{organism_name}\t{organism_taxon}\t{nearest_organism_name}\t{nearest_taxon}\t{organism_taxon == nearest_taxon}\t{','.join(accessions)}\n"
         )
 
-        if nearest_taxon not in taxon_to_lineage:
-            taxon_to_lineage[nearest_taxon] = tax_to_lineage(nearest_taxon)
-
         for acc in accessions_info:
             assembly_accession, sci_name, tax_id = acc
             NAMES.write(f"{assembly_accession}\t{nearest_taxon}\t{tax_id}\t{sci_name}\n")
@@ -147,8 +144,9 @@ with open("nearest_taxon.tsv", "w") as NEAREST_TSV, open(
             )
             SH.write(f"rm -rf {assembly_accession}/\n\n")
 
-        # for accession in accessions:
-        #     accession = accession.split(".")[0]
-        #     lineage = taxon_to_lineage[nearest_taxon]
-        #     sourmash_lin = f"{accession},{nearest_taxon},{lineage}"
-        #     SMASH_LIN.write(sourmash_lin)
+        for acc in accessions_info:
+            assembly_accession, sci_name, tax_id = acc
+            accession = assembly_accession.split(".")[0]
+            lineage = tax_to_lineage(tax_id)
+            sourmash_lin = f"{accession},{tax_id},{lineage}"
+            SMASH_LIN.write(sourmash_lin)
